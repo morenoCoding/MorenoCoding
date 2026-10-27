@@ -52,9 +52,9 @@ body.rv #nv{display:none}#pa{display:none}.pf{border:3px double var(--c);padding
 <script>
 
 const SUPABASE_URL="https://akmjqblkulgvqzofthks.supabase.co",SUPABASE_KEY="sb_publishable_szDFKWScx_y8b5OK12FUuw_t2hs0DX7";
-
+ 
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const OK=!!(SUPABASE_URL&&SUPABASE_KEY),sb=OK?supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{flowType:'pkce'}}):null;
+const OK=!!(SUPABASE_URL&&SUPABASE_KEY),sb=OK?supabase.createClient(SUPABASE_URL.trim().replace(/\/(rest|auth)\/v1\/?$/,'').replace(/\/+$/,''),SUPABASE_KEY.trim()):null;
 const col=c=>/^#[0-9a-f]{6}$/i.test(c)?c:'#000000',app=$('#app'),NOCFG='This site is not connected to a database yet, so letters cannot be saved or published. Follow the setup steps, then reload.';
 const TH={romantic:['#fff5f3','#5a2433','#b8364c','hearts'],cute:['#fff0f6','#6b3a55','#e0588f','hearts'],minimalist:['#ffffff','#222222','#777777','none'],aesthetic:['#f4ece1','#4b3f36','#a67c5b','flowers'],anniversary:['#fbf3e6','#4a2c2a','#a63d52','ribbon'],birthday:['#fff8e8','#5a3a1c','#e07a35','stars'],friendship:['#eef7f4','#25483f','#2f8f78','stars'],apology:['#f1f3f8','#2e3a55','#5f74ad','none'],appreciation:['#fdf4ea','#4d3a22','#b77f1f','flowers']};
 const FONTS={'Cormorant Garamond':"'Cormorant Garamond',serif",'Dancing Script':"'Dancing Script',cursive",Lora:"Lora,serif",Inter:"Inter,sans-serif"},GL={hearts:'♥',flowers:'✿',stars:'★'};
@@ -107,10 +107,15 @@ function home(){app.innerHTML=`<div class="wrap"><section class="hero"><div><h1>
 <section class="steps"><div><h3>1. Write it</h3><p>Choose a theme, fonts and colors, add photos, and watch the preview as you type.</p></div><div><h3>2. Print the QR code</h3><p>Every published letter gets its own link. The heart QR code points to it. Download it or print it on paper, a card or a gift.</p></div><div><h3>3. They scan it</h3><p>Their phone opens your letter with its original design, no app or account needed.</p></div></section></div>`;
  drawHeart($('#hc'),'https://example.com/#/l/sample0000',{c1:'#b8364c',c2:'#d9566f'})}
 
-async function signin(){if(!OK)return msg(NOCFG);app.innerHTML=`<div class="wrap" style="max-width:460px"><div class="card"><h2>Sign in</h2><p>Enter your email and we will send you a sign-in link. Open it in this same browser.</p><label>Email</label><input id="em" type="email" autocomplete="email"><p><button class="btn" id="go">Send link</button></p></div></div>`;
- $('#go').onclick=async()=>{const email=$('#em').value.trim();if(!email)return;busy(1);const{error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:base()}});busy(0);error?toast('Could not send: '+error.message):msg('Check your inbox for the sign-in link.')}}
-let fl=/[?&]code=/.test(location.search);
-OK&&sb.auth.onAuthStateChange(e=>{if(e==='SIGNED_IN'){nav();if(fl||/#\/in/.test(location.hash)){fl=false;go('#/dash')}}});
+async function signin(){if(!OK)return msg(NOCFG);
+ app.innerHTML=`<div class="wrap" style="max-width:460px"><div class="card"><h2>Sign in or create an account</h2><p>Pick a username and a password. No email needed.</p><label>Username</label><input id="un" autocomplete="username" autocapitalize="none" placeholder="3 to 20 letters, numbers or _"><label>Password</label><input id="pw2" type="password" autocomplete="current-password" placeholder="At least 8 characters"><p class="acts" style="margin-top:18px"><button class="btn" id="si">Sign in</button><button class="btn o" id="su">Create account</button></p><p><small>There is no password reset, so keep your password somewhere safe.</small></p></div></div>`;
+ const cred=()=>{const u=$('#un').value.trim().toLowerCase(),p=$('#pw2').value;if(!/^[a-z0-9_]{3,20}$/.test(u)){toast('Username: 3 to 20 letters, numbers or underscores');return null}if(p.length<8){toast('Password needs at least 8 characters');return null}return{email:u+'@users.littleletters.app',password:p}};
+ const done=()=>go(localStorage.getItem('ll')?'#/new':'#/dash');
+ $('#si').onclick=async()=>{const c=cred();if(!c)return;busy(1);const{error}=await sb.auth.signInWithPassword(c);busy(0);error?toast('Sign in failed: wrong username or password'):done()};
+ $('#su').onclick=async()=>{const c=cred();if(!c)return;busy(1);const{data,error}=await sb.auth.signUp(c);busy(0);
+  if(error)return toast(/registered|exists/i.test(error.message)?'That username is taken. Pick another.':'Could not create account: '+error.message);
+  if(!data.session)return toast('Account created but not signed in. In Supabase, turn off "Confirm email", then press Sign in.');done()}}
+OK&&sb.auth.onAuthStateChange(e=>{if(e==='SIGNED_IN')nav()});
 
 // ---------- dashboard ----------
 async function dash(){if(!OK)return msg(NOCFG);if(!await authed())return go('#/in');
@@ -176,6 +181,4 @@ async function rec(id){document.body.className='rv';if(!OK)return app.innerHTML=
    setTimeout(()=>{R.innerHTML=`<div class="unf">${paper(d,src)}</div>`},1700)}};
  load()}
 route();
-</script>
-</body>
-</html>
+</script></body></html>
